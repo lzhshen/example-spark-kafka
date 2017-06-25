@@ -20,6 +20,9 @@ import org.apache.spark.storage.StorageLevel
 import org.mkuthan.spark._
 
 import scala.concurrent.duration.FiniteDuration
+import com.github.benfradet.spark.kafka010.writer._
+import org.apache.kafka.clients.producer.ProducerRecord
+import org.apache.kafka.common.serialization.StringSerializer
 
 class WordCountJob(config: WordCountJobConfig, source: KafkaDStreamSource) extends SparkStreamingApplication {
 
@@ -32,14 +35,7 @@ class WordCountJob(config: WordCountJobConfig, source: KafkaDStreamSource) exten
   def start(): Unit = {
     withSparkStreamingContext { (sc, ssc) =>
       val input = source.createSource(ssc, config.inputTopic)
-
-      // Option 1: Array[Byte] -> String
-      val stringCodec = sc.broadcast(KafkaPayloadStringCodec())
-      val lines = input.flatMap(stringCodec.value.decodeValue(_))
-
-      // Option 2: Array[Byte] -> Specific Avro
-      //val avroSpecificCodec = sc.broadcast(KafkaPayloadAvroSpecificCodec[SomeAvroType]())
-      //val lines = input.flatMap(avroSpecificCodec.value.decodeValue(_))
+      val lines = input.map(_.value())
 
       val countedWords = WordCount.countWords(
         ssc,
@@ -49,20 +45,32 @@ class WordCountJob(config: WordCountJobConfig, source: KafkaDStreamSource) exten
         config.slideDuration
       )
 
-      // encode Kafka payload (e.g: to String or Avro)
-      val output = countedWords
-        .map(_.toString())
-        .map(stringCodec.value.encodeValue(_))
+      countedWords.persist(StorageLevel.MEMORY_ONLY_SER)
 
-      // cache to speed-up processing if action fails
-      output.persist(StorageLevel.MEMORY_ONLY_SER)
+      //implicit def map2Properties(map:Map[String,String]):java.util.Properties = {
+      //  (new java.util.Properties /: map) {case (props, (k,v)) => props.put(k,v); props}
+      //}
+      import scala.language.implicitConversions
+      implicit def map2Properties(map:Map[String,String]):java.util.Properties = {
+        val props = new java.util.Properties()
+        map foreach { case (key,value) => props.put(key, value)}
+        props
+      }
 
-      import KafkaDStreamSink._
-      output.sendToKafka(config.sinkKafka, config.outputTopic)
+      val p = map2Properties(config.sinkKafka)
+      p.setProperty("key.serializer", classOf[StringSerializer].getName)
+      p.setProperty("value.serializer", classOf[StringSerializer].getName)
+
+      countedWords.writeToKafka(
+        p,
+        s => new ProducerRecord[String, String]("my-topic", s.toString())
+      )
     }
   }
 
 }
+
+
 
 object WordCountJob {
 
@@ -113,5 +121,4 @@ object WordCountJobConfig {
       config.as[Map[String, String]]("kafkaSink")
     )
   }
-
 }

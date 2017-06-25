@@ -16,23 +16,24 @@
 
 package org.mkuthan.spark
 
-import kafka.serializer.DefaultDecoder
 import org.apache.spark.streaming.StreamingContext
+import org.apache.spark.streaming.kafka010._
 import org.apache.spark.streaming.dstream.DStream
-import org.apache.spark.streaming.kafka.KafkaUtils
+import org.apache.kafka.clients.consumer.ConsumerRecord
+
+
 
 class KafkaDStreamSource(config: Map[String, String]) {
 
-  def createSource(ssc: StreamingContext, topic: String): DStream[KafkaPayload] = {
+  def createSource(ssc: StreamingContext, topic: String): DStream[ConsumerRecord[String, String]] = {
     val kafkaParams = config
     val kafkaTopics = Set(topic)
-
-    KafkaUtils.
-      createDirectStream[Array[Byte], Array[Byte], DefaultDecoder, DefaultDecoder](
+    val preferredHosts = LocationStrategies.PreferConsistent
+    val consumerStrategy = ConsumerStrategies.Subscribe[String, String](kafkaTopics, kafkaParams)
+    KafkaUtils.createDirectStream[String, String](
       ssc,
-      kafkaParams,
-      kafkaTopics).
-      map(dstream => KafkaPayload(Option(dstream._1), dstream._2))
+      preferredHosts,
+      consumerStrategy)
   }
 
 }
