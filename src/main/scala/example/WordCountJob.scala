@@ -33,6 +33,21 @@ class WordCountJob(config: WordCountJobConfig, source: KafkaDStreamSource) exten
   override def streamingCheckpointDir: String = config.streamingCheckpointDir
 
   def start(): Unit = {
+
+    //implicit def map2Properties(map:Map[String,String]):java.util.Properties = {
+    //  (new java.util.Properties /: map) {case (props, (k,v)) => props.put(k,v); props}
+    //}
+    import scala.language.implicitConversions
+    implicit def map2Properties(map:Map[String,String]):java.util.Properties = {
+      val props = new java.util.Properties()
+      map foreach { case (key,value) => props.put(key, value)}
+      props
+    }
+
+    val p = map2Properties(config.sinkKafka)
+    p.setProperty("key.serializer", classOf[StringSerializer].getName)
+    p.setProperty("value.serializer", classOf[StringSerializer].getName)
+
     withSparkStreamingContext { (sc, ssc) =>
       val input = source.createSource(ssc, config.inputTopic)
       val lines = input.map(_.value())
@@ -47,23 +62,9 @@ class WordCountJob(config: WordCountJobConfig, source: KafkaDStreamSource) exten
 
       countedWords.persist(StorageLevel.MEMORY_ONLY_SER)
 
-      //implicit def map2Properties(map:Map[String,String]):java.util.Properties = {
-      //  (new java.util.Properties /: map) {case (props, (k,v)) => props.put(k,v); props}
-      //}
-      import scala.language.implicitConversions
-      implicit def map2Properties(map:Map[String,String]):java.util.Properties = {
-        val props = new java.util.Properties()
-        map foreach { case (key,value) => props.put(key, value)}
-        props
-      }
-
-      val p = map2Properties(config.sinkKafka)
-      p.setProperty("key.serializer", classOf[StringSerializer].getName)
-      p.setProperty("value.serializer", classOf[StringSerializer].getName)
-
       countedWords.writeToKafka(
         p,
-        s => new ProducerRecord[String, String]("my-topic", s.toString())
+        s => new ProducerRecord[String, String](config.outputTopic, s.toString())
       )
     }
   }
@@ -100,7 +101,6 @@ object WordCountJobConfig {
 
   import com.typesafe.config.{Config, ConfigFactory}
   import net.ceedubs.ficus.Ficus._
-  import net.ceedubs.ficus.readers.ArbitraryTypeReader.arbitraryTypeValueReader
 
   def apply(): WordCountJobConfig = apply(ConfigFactory.load)
 

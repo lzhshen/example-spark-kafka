@@ -23,7 +23,7 @@ import org.apache.kafka.clients.consumer.ConsumerRecord
 
 
 
-class KafkaDStreamSource(config: Map[String, String]) {
+class KafkaDStreamSource(config: Map[String, String]) extends Serializable {
 
   def createSource(ssc: StreamingContext, topic: String): DStream[ConsumerRecord[String, String]] = {
     val kafkaParams = config
