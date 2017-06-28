@@ -1,5 +1,7 @@
 .idea/
 *.iml
-
+.gitignore
+*.swp
 target/
 project/project/
+src/main/scala/META-INF/
