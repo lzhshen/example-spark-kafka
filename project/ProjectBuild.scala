@@ -22,7 +22,8 @@ object ProjectBuild extends Build {
   object Versions {
     // val kafka = "0.8.2.1"
     //val spark = "1.6.0"
-    val kafka = "0.10.2.1"
+    // val kafka = "0.10.2.1"
+    val kafka = "0.10.0.0"
     val spark = "2.1.0"
   }
 
@@ -52,6 +53,11 @@ object ProjectBuild extends Build {
   )
 
   val commonLibraryDependencies = Seq(
+    "org.scala-lang" % "scala-compiler" % "2.10.4",
+    "org.scala-lang" % "scala-library" % "2.10.4",
+    "org.scala-lang" % "scala-reflect" % "2.10.4",
+
+
     "org.apache.kafka" %% "kafka" % Versions.kafka,
     "org.apache.kafka" % "kafka-clients" % Versions.kafka,
 
@@ -81,4 +87,3 @@ object ProjectBuild extends Build {
     .settings(libraryDependencies ++= commonLibraryDependencies)
     .settings(excludeDependencies ++= commonExcludeDependencies)
 }
-

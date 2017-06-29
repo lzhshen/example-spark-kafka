@@ -60,9 +60,10 @@ class WordCountSpec extends FlatSpec with GivenWhenThen with Matchers with Event
   }
 
   override def sparkConfig: Map[String, String] = {
-    super.sparkConfig +
-      ("spark.serializer" -> "org.apache.spark.serializer.KryoSerializer") +
-      ("spark.kryo.registrator" -> "example.WordCountKryoRegistration")
+    super.sparkConfig
+    //super.sparkConfig +
+    //  ("spark.serializer" -> "org.apache.spark.serializer.KryoSerializer") +
+    //  ("spark.kryo.registrator" -> "example.WordCountKryoRegistration")
   }
 
   "Apache Spark set" should "be counted over sliding window" in {
