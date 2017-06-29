@@ -95,11 +95,13 @@ object WordCountJobConfig {
   import com.typesafe.config.{Config, ConfigFactory}
   import net.ceedubs.ficus.Ficus._
 
+  val env: String = if (System.getenv("SCALA_ENV") == null) "development" else System.getenv("SCALA_ENV")
+
   def apply(): WordCountJobConfig = apply(ConfigFactory.load)
 
   def apply(applicationConfig: Config): WordCountJobConfig = {
 
-    val config = applicationConfig.getConfig("wordCountJob")
+    val config = applicationConfig.getConfig("wordCountJob").getConfig(env)
 
     new WordCountJobConfig(
       config.as[String]("input.topic"),
