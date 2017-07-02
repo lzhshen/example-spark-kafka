@@ -16,8 +16,16 @@
 
 package example
 
+import java.io.File
+import org.apache.hadoop.fs.Path
+import org.apache.hadoop.fs.FileSystem
+import org.apache.hadoop.conf.Configuration
+import java.net.URI
+
 import org.apache.spark.storage.StorageLevel
 import org.mkuthan.spark._
+import com.typesafe.config.{Config, ConfigFactory}
+import net.ceedubs.ficus.Ficus._
 
 import scala.concurrent.duration.FiniteDuration
 import com.github.benfradet.spark.kafka010.writer._
@@ -65,11 +73,22 @@ class WordCountJob(config: WordCountJobConfig, source: KafkaDStreamSource) exten
 }
 
 
-
 object WordCountJob {
 
   def main(args: Array[String]): Unit = {
-    val config = WordCountJobConfig()
+    val config = if (args.length == 0) {
+      WordCountJobConfig()
+    } else {
+      /*
+      import java.io.InputStreamReader
+      val reader = new InputStreamReader(args(0))
+      val config = ConfigFactory.parseReader(reader)*/
+
+      //val configFile = SparkFiles.get(args(0))
+      //val config = ConfigFactory.load(ConfigFactory.parseFile(new File(configFile)))
+
+      WordCountJobConfig(WordCountJobConfig.loadConf(args(0)))
+    }
 
     val streamingJob = new WordCountJob(config, KafkaDStreamSource(config.sourceKafka))
     streamingJob.start()
@@ -92,16 +111,11 @@ case class WordCountJobConfig(
 
 object WordCountJobConfig {
 
-  import com.typesafe.config.{Config, ConfigFactory}
-  import net.ceedubs.ficus.Ficus._
-
-  val env: String = if (System.getenv("SCALA_ENV") == null) "development" else System.getenv("SCALA_ENV")
-
   def apply(): WordCountJobConfig = apply(ConfigFactory.load)
 
   def apply(applicationConfig: Config): WordCountJobConfig = {
 
-    val config = applicationConfig.getConfig("wordCountJob").getConfig(env)
+    val config = applicationConfig.getConfig("wordCountJob")
 
     new WordCountJobConfig(
       config.as[String]("input.topic"),
@@ -115,5 +129,22 @@ object WordCountJobConfig {
       config.as[Map[String, String]]("kafkaSource"),
       config.as[Map[String, String]]("kafkaSink")
     )
+  }
+
+  private val HDFS_IMPL_KEY = "fs.hdfs.impl"
+  def loadConf(pathToConf: String): Config = {
+    val path = new Path(pathToConf)
+    val confFile = File.createTempFile(path.getName, "tmp")
+    confFile.deleteOnExit()
+    getFileSystemByUri(path.toUri).copyToLocalFile(path, new Path(confFile.getAbsolutePath))
+
+    ConfigFactory.parseFile(confFile)
+  }
+
+
+  def getFileSystemByUri(uri: URI) : FileSystem  = {
+    val hdfsConf = new Configuration()
+    hdfsConf.set(HDFS_IMPL_KEY, classOf[org.apache.hadoop.hdfs.DistributedFileSystem].getName)
+    FileSystem.get(uri, hdfsConf)
   }
 }
