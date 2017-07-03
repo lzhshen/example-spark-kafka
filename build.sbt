@@ -15,3 +15,5 @@
 // limitations under the License.
 
 assemblyMergeStrategy in assembly := customMergeStrategy
+ideaExcludeFolders += ".idea"
+ideaExcludeFolders += ".idea_modules"
