@@ -19,41 +19,31 @@ package ccb.mgmtview
 import org.apache.spark.rdd.RDD
 import org.apache.spark.streaming.dstream.DStream
 import org.apache.spark.streaming.{Duration, StreamingContext}
-import scala.concurrent.duration.FiniteDuration
+import org.shen.streaming.FilebeatLogRecord
 
 object ServiceLogParser {
-/*
-  type WordCount = (String, Int)
 
-  def parse(
-                  ssc: StreamingContext,
-                  lines: DStream[String],
-                  windowDuration: FiniteDuration,
-                  slideDuration: FiniteDuration): DStream[WordCount] = {
+  val fields: List[String] = List("timestamp", "loglevel", "reqTimeStamp",
+    "uuid", "traceId", "txCodeDetails", "compId", "insId", "userId",
+    "loginName", "clientInfo", "txCostTime", "dataFrom", "rowCount",
+    "errCode", "errMsg")
 
-    import scala.language.implicitConversions
-    implicit def finiteDurationToSparkDuration(value: FiniteDuration): Duration = new Duration(value.toMillis)
-
+  def parse(ssc: StreamingContext, lines: DStream[String]): DStream[String] = {
     val sc = ssc.sparkContext
-
-    val windowDurationVar = sc.broadcast(windowDuration)
-    val slideDurationVar = sc.broadcast(slideDuration)
-
-    val words = lines
-      .transform(splitLine)
-
-    val wordCounts = words
-      .map(word => (word, 1))
-      .reduceByKeyAndWindow(_ + _, _ - _, windowDurationVar.value, slideDurationVar.value)
-
-    wordCounts
-      .transform(skipEmptyWordCounts)
-      .transform(sortWordCounts)
+    val docs = lines.transform(extractMessageField)
+    docs
   }
 
-  val splitLine = (lines: RDD[String]) => lines.flatMap(line => line.split("[^\\p{L}]"))
-  */
-
+  val extractMessageField = (lines: RDD[String]) =>
+    lines.map(line => {
+      val rec = new FilebeatLogRecord(line, fields)
+      val m = rec.parse("\\|")
+      // cut off milliseconds part of timestamp if "timestamp" field exists
+      val n = collection.mutable.Map(m.toSeq: _*)
+      if (n.contains("timestamp")) n("timestamp") = n("timestamp").split(",")(0)
+      val doc = scala.util.parsing.json.JSONObject(n.toMap).toString()
+      doc
+    })
 }
 
 

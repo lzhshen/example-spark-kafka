@@ -1,20 +1,4 @@
-// Copyright (C) 2011-2012 the original author or authors.
-// See the LICENCE.txt file distributed with this work for additional
-// information regarding copyright ownership.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
-package example
+package ccb.mgmtview
 
 import org.apache.spark.storage.StorageLevel
 import org.mkuthan.spark._
@@ -26,7 +10,8 @@ import com.github.benfradet.spark.kafka010.writer._
 import org.apache.kafka.clients.producer.ProducerRecord
 import org.shen.streaming.Utils
 
-class WordCountJob(config: WordCountJobConfig, source: KafkaDStreamSource) extends SparkStreamingApplication {
+class ServiceLogParserJob(config: ServiceLogParserJobConfig, source: KafkaDStreamSource)
+  extends SparkStreamingApplication {
 
   override def sparkConfig: Map[String, String] = config.spark
 
@@ -40,18 +25,14 @@ class WordCountJob(config: WordCountJobConfig, source: KafkaDStreamSource) exten
       val input = source.createSource(ssc, config.inputTopic)
       val lines = input.map(_.value())
 
-      val countedWords = WordCount.countWords(
+      val docs = ServiceLogParser.parse(
         ssc,
-        lines,
-        config.stopWords,
-        config.windowDuration,
-        config.slideDuration
-      )
+        lines)
 
-      countedWords.persist(StorageLevel.MEMORY_ONLY_SER)
+      docs.persist(StorageLevel.MEMORY_ONLY_SER)
 
       val p = Utils.map2Properties(config.sinkKafka)
-      countedWords.writeToKafka(
+      docs.writeToKafka(
         p,
         s => new ProducerRecord[String, String](config.outputTopic, s.toString())
       )
@@ -60,26 +41,23 @@ class WordCountJob(config: WordCountJobConfig, source: KafkaDStreamSource) exten
 }
 
 
-object WordCountJob {
+object ServiceLogParserJob {
 
   def main(args: Array[String]): Unit = {
     val config = if (args.length == 0) {
-      WordCountJobConfig()
+      ServiceLogParserJobConfig()
     } else {
-      WordCountJobConfig(Utils.loadConf(args(0)))
+      ServiceLogParserJobConfig(Utils.loadConf(args(0)))
     }
 
-    val streamingJob = new WordCountJob(config, KafkaDStreamSource(config.sourceKafka))
+    val streamingJob = new ServiceLogParserJob(config, KafkaDStreamSource(config.sourceKafka))
     streamingJob.start()
   }
 }
 
-case class WordCountJobConfig(
+case class ServiceLogParserJobConfig(
                                inputTopic: String,
                                outputTopic: String,
-                               stopWords: Set[String],
-                               windowDuration: FiniteDuration,
-                               slideDuration: FiniteDuration,
                                spark: Map[String, String],
                                streamingBatchDuration: FiniteDuration,
                                streamingCheckpointDir: String,
@@ -87,20 +65,17 @@ case class WordCountJobConfig(
                                sinkKafka: Map[String, String])
   extends Serializable
 
-object WordCountJobConfig {
+object ServiceLogParserJobConfig {
 
-  def apply(): WordCountJobConfig = apply(ConfigFactory.load)
+  def apply(): ServiceLogParserJobConfig = apply(ConfigFactory.load)
 
-  def apply(applicationConfig: Config): WordCountJobConfig = {
+  def apply(applicationConfig: Config): ServiceLogParserJobConfig = {
 
     val config = applicationConfig.getConfig("wordCountJob")
 
-    new WordCountJobConfig(
+    new ServiceLogParserJobConfig(
       config.as[String]("input.topic"),
       config.as[String]("output.topic"),
-      config.as[Set[String]]("stopWords"),
-      config.as[FiniteDuration]("windowDuration"),
-      config.as[FiniteDuration]("slideDuration"),
       config.as[Map[String, String]]("spark"),
       config.as[FiniteDuration]("streamingBatchDuration"),
       config.as[String]("streamingCheckpointDir"),
