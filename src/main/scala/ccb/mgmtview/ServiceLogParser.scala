@@ -18,7 +18,7 @@ package ccb.mgmtview
 
 import org.apache.spark.rdd.RDD
 import org.apache.spark.streaming.dstream.DStream
-import org.apache.spark.streaming.{Duration, StreamingContext}
+import org.apache.spark.streaming.{StreamingContext}
 import org.shen.streaming.FilebeatLogRecord
 
 object ServiceLogParser {
