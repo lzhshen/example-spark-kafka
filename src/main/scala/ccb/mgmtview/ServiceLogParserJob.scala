@@ -19,6 +19,8 @@ class ServiceLogParserJob(config: ServiceLogParserJobConfig, source: KafkaDStrea
 
   override def streamingCheckpointDir: String = config.streamingCheckpointDir
 
+  override def streamingShutdownMarker: String = config.streamingShutdownMarker
+
   def start(): Unit = {
 
     withSparkStreamingContext { (sc, ssc) =>
@@ -61,6 +63,7 @@ case class ServiceLogParserJobConfig(
                                spark: Map[String, String],
                                streamingBatchDuration: FiniteDuration,
                                streamingCheckpointDir: String,
+                               streamingShutdownMarker: String,
                                sourceKafka: Map[String, String],
                                sinkKafka: Map[String, String])
   extends Serializable
@@ -79,6 +82,7 @@ object ServiceLogParserJobConfig {
       config.as[Map[String, String]]("spark"),
       config.as[FiniteDuration]("streamingBatchDuration"),
       config.as[String]("streamingCheckpointDir"),
+      config.as[String]("streamingShutdownMarker"),
       config.as[Map[String, String]]("kafkaSource"),
       config.as[Map[String, String]]("kafkaSink")
     )

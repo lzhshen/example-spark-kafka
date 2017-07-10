@@ -16,16 +16,21 @@
 
 package org.mkuthan.spark
 
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.SparkContext
 import org.apache.spark.streaming.{Seconds, StreamingContext}
+import org.shen.streaming._
 
 import scala.concurrent.duration.FiniteDuration
 
-trait SparkStreamingApplication extends SparkApplication {
+trait SparkStreamingApplication extends SparkApplication with Serializable {
 
   def streamingBatchDuration: FiniteDuration
 
   def streamingCheckpointDir: String
+
+  def streamingShutdownMarker: String
 
   def withSparkStreamingContext(f: (SparkContext, StreamingContext) => Unit): Unit = {
     withSparkContext { sc =>
@@ -35,8 +40,33 @@ trait SparkStreamingApplication extends SparkApplication {
       f(sc, ssc)
 
       ssc.start()
-      ssc.awaitTermination()
+      waitShutdownCommand(ssc, streamingShutdownMarker)
     }
   }
+  //val log = Logger.getLogger(getClass)
 
+  def waitShutdownCommand(ssc: StreamingContext, shutdownMarker: String): Unit = {
+    var stopFlag: Boolean = false
+    val checkIntervalMillis: Long = 10000
+    var isStopped = false
+    val fs = FileSystem.get(new Configuration())
+    while (!isStopped) {
+      isStopped = ssc.awaitTerminationOrTimeout(checkIntervalMillis)
+      if (isStopped) {
+        LogHolder.log.info("ssc stopped")
+      }
+
+      if (!stopFlag) {
+        stopFlag = fs.exists(new Path(shutdownMarker))
+      } else {
+        LogHolder.log.info("waiting ssc to stop")
+      }
+
+      if (!isStopped && stopFlag) {
+        LogHolder.log.info("stopping ssc")
+        ssc.stop(true, true)
+        LogHolder.log.info("ssc stop called")
+      }
+    }
+  }
 }

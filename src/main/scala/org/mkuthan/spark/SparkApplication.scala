@@ -18,7 +18,7 @@ package org.mkuthan.spark
 
 import org.apache.spark.{SparkConf, SparkContext}
 
-trait SparkApplication extends Serializable {
+trait SparkApplication {
 
   def sparkConfig: Map[String, String]
 
