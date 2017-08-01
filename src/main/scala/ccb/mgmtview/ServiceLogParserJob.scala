@@ -8,6 +8,8 @@ import net.ceedubs.ficus.Ficus._
 import scala.concurrent.duration.FiniteDuration
 import com.github.benfradet.spark.kafka010.writer._
 import org.apache.kafka.clients.producer.ProducerRecord
+import org.apache.spark.SparkContext
+import org.apache.spark.streaming.StreamingContext
 import org.shen.streaming.Utils
 
 class ServiceLogParserJob(config: ServiceLogParserJobConfig, source: KafkaDStreamSource)
@@ -23,13 +25,16 @@ class ServiceLogParserJob(config: ServiceLogParserJobConfig, source: KafkaDStrea
 
   def start(): Unit = {
 
-    withSparkStreamingContext { (sc, ssc) =>
+    withSparkStreamingContext { (sc: SparkContext, ssc: StreamingContext) =>
+      // load org map file
+      val orgFile = config.appParams("orgMapFile")
+      val orgMap = sc.textFile(orgFile).collect().drop(1).map(OrgLogParser.parse).map(o => (o.InsID, o)).toMap
+      val orgMapBC = sc.broadcast(orgMap)
+
       val input = source.createSource(ssc, config.inputTopic)
       val lines = input.map(_.value())
 
-      val docs = ServiceLogParser.parse(
-        ssc,
-        lines)
+      val docs = ServiceLogParser.parse(ssc, lines, orgMapBC)
 
       docs.persist(StorageLevel.MEMORY_ONLY_SER)
 
@@ -60,6 +65,7 @@ object ServiceLogParserJob {
 case class ServiceLogParserJobConfig(
                                inputTopic: String,
                                outputTopic: String,
+                               appParams:Map[String, String],
                                spark: Map[String, String],
                                streamingBatchDuration: FiniteDuration,
                                streamingCheckpointDir: String,
@@ -74,15 +80,16 @@ object ServiceLogParserJobConfig {
 
   def apply(applicationConfig: Config): ServiceLogParserJobConfig = {
 
-    val config = applicationConfig.getConfig("wordCountJob")
+    val config = applicationConfig.getConfig("serviceLogParserJob")
 
     new ServiceLogParserJobConfig(
       config.as[String]("input.topic"),
       config.as[String]("output.topic"),
+      config.as[Map[String, String]]("appParams"),
       config.as[Map[String, String]]("spark"),
-      config.as[FiniteDuration]("streamingBatchDuration"),
-      config.as[String]("streamingCheckpointDir"),
-      config.as[String]("streamingShutdownMarker"),
+      config.as[FiniteDuration]("streaming.batchDuration"),
+      config.as[String]("streaming.checkpointDir"),
+      config.as[String]("streaming.shutdownMarker"),
       config.as[Map[String, String]]("kafkaSource"),
       config.as[Map[String, String]]("kafkaSink")
     )

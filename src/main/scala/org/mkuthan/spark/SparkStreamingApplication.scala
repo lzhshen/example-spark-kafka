@@ -20,11 +20,17 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.SparkContext
 import org.apache.spark.streaming.{Seconds, StreamingContext}
+import org.apache.spark.sql.SparkSession
 import org.shen.streaming._
 
 import scala.concurrent.duration.FiniteDuration
 
+
 trait SparkStreamingApplication extends SparkApplication with Serializable {
+
+  /*
+  type SparkContextFunc = (SparkContext, StreamingContext) => Unit
+  type SparkSessionFunc = (SparkSession, StreamingContext) => Unit*/
 
   def streamingBatchDuration: FiniteDuration
 
@@ -43,7 +49,27 @@ trait SparkStreamingApplication extends SparkApplication with Serializable {
       waitShutdownCommand(ssc, streamingShutdownMarker)
     }
   }
+  def createStreamingContext(sparkSession : SparkSession): StreamingContext ={
+    val sparkContext = sparkSession.sparkContext
+
+    val streamingContext = new StreamingContext(sparkContext,Seconds(streamingBatchDuration.toSeconds))
+    streamingContext.checkpoint(streamingCheckpointDir)
+    streamingContext
+  }
   //val log = Logger.getLogger(getClass)
+  def withSparkStreamingSession(f: (SparkSession, StreamingContext) => Unit): Unit = {
+      withSparkSession { spark =>
+      //val ssc = new StreamingContext(sc, Seconds(streamingBatchDuration.toSeconds))
+      //ssc.checkpoint(streamingCheckpointDir)
+      val ssc = StreamingContext.getOrCreate(streamingCheckpointDir,
+        () => createStreamingContext(spark))
+
+      f(spark, ssc)
+
+      ssc.start()
+      waitShutdownCommand(ssc, streamingShutdownMarker)
+    }
+  }
 
   def waitShutdownCommand(ssc: StreamingContext, shutdownMarker: String): Unit = {
     var stopFlag: Boolean = false
@@ -70,3 +96,4 @@ trait SparkStreamingApplication extends SparkApplication with Serializable {
     }
   }
 }
+

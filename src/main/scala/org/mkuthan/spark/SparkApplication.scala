@@ -17,6 +17,7 @@
 package org.mkuthan.spark
 
 import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.sql.SparkSession
 
 trait SparkApplication {
 
@@ -30,6 +31,16 @@ trait SparkApplication {
     val sc = new SparkContext(conf)
 
     f(sc)
+  }
+
+  def withSparkSession(f: SparkSession => Unit): Unit = {
+    val conf = new SparkConf()
+
+    sparkConfig.foreach { case (k, v) => conf.setIfMissing(k, v) }
+
+    val spark = SparkSession.builder().config(conf).getOrCreate()
+
+    f(spark)
   }
 
 }

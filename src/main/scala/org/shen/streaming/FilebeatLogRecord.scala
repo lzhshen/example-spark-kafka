@@ -34,3 +34,20 @@ class FilebeatLogRecord(doc: String, fields: List[String]) {
     kvMap
   }
 }
+/*
+case class ServiceLogRec(timeStamp: String,
+                         logLevel: String,
+                         reqTimeStamp: String,
+                         uuid: String,
+                         traceID: String,
+                         txCodeDetails: String,
+                         compId: String,
+                         insId: String,
+                         userId: String,
+                         loginName: String,
+                         clientInfo: String,
+                         txCostTime: String,
+                         dataFrom: String,
+                         rowCount: String,
+                         errCode: String,
+                         errMsg: String)*/

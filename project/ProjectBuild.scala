@@ -51,6 +51,7 @@ object ProjectBuild extends Build {
     case PathList("org", "apache", "spark", xs @ _ *) => MergeStrategy.last
     case PathList("org", "aopalliance", xs @ _ *) => MergeStrategy.last
     case PathList("javax","inject", xs @ _ *) => MergeStrategy.last
+    case "overview.html" => MergeStrategy.discard
     case s =>
       MergeStrategy.defaultMergeStrategy(s)
   }
@@ -79,10 +80,13 @@ object ProjectBuild extends Build {
 
     "org.apache.spark" %% "spark-core" % Versions.spark,
     "org.apache.spark" %% "spark-streaming" % Versions.spark,
+    "org.apache.spark" %% "spark-sql" % Versions.spark,
     "org.apache.spark" %% "spark-streaming-kafka-0-10" % Versions.spark,
     "com.github.benfradet" %% "spark-kafka-0-10-writer" % "0.2.0",
+    //"com.databricks" % "spark-csv_2.10" % "1.5.0",
 
-    "com.typesafe" % "config" % "1.2.1",
+
+  "com.typesafe" % "config" % "1.2.1",
     "net.ceedubs" %% "ficus" % "1.0.1",
 
     "ch.qos.logback" % "logback-classic" % "0.9.24",

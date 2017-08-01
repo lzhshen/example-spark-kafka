@@ -7,6 +7,7 @@ import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.log4j.Logger
+import org.apache.spark._
 
 /**
   * Created by shen on 7/2/17.
@@ -35,6 +36,10 @@ object Utils {
     map foreach { case (key,value) => props.put(key, value)}
     props
   }
+/*
+  def loadOrgFromCsvFile(file: String, sc: SparkContext, header: Boolean = true) : Map[String: Map[String, String]] = {
+    val df = sc.read.format("csv").option("header", "true").load(file)
+  }*/
 }
 
 object LogHolder extends Serializable {

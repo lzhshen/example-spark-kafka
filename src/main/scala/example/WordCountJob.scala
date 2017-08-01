@@ -24,6 +24,8 @@ import net.ceedubs.ficus.Ficus._
 import scala.concurrent.duration.FiniteDuration
 import com.github.benfradet.spark.kafka010.writer._
 import org.apache.kafka.clients.producer.ProducerRecord
+import org.apache.spark.streaming.StreamingContext
+import org.apache.spark.SparkContext
 import org.shen.streaming.Utils
 
 class WordCountJob(config: WordCountJobConfig, source: KafkaDStreamSource) extends SparkStreamingApplication {
@@ -38,7 +40,7 @@ class WordCountJob(config: WordCountJobConfig, source: KafkaDStreamSource) exten
 
   def start(): Unit = {
 
-    withSparkStreamingContext { (sc, ssc) =>
+    withSparkStreamingContext { (sc: SparkContext, ssc: StreamingContext) =>
       val input = source.createSource(ssc, config.inputTopic)
       val lines = input.map(_.value())
 
